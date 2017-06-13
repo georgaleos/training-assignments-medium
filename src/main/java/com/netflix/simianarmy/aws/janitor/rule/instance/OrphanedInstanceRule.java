@@ -97,10 +97,8 @@ public class OrphanedInstanceRule implements Rule {
             // resource not for cleanup.
             return true;
         }
-        String awsStatus = ((AWSResource) resource).getAWSResourceState();
-        if (!"running".equals(awsStatus) || "pending".equals(awsStatus)) {
-            return true;
-        }
+        if (validateRunningOrPending((AWSResource) resource)) return true;
+
         AWSResource instanceResource = (AWSResource) resource;
         String asgName = instanceResource.getAdditionalField(InstanceJanitorCrawler.INSTANCE_FIELD_ASG_NAME);
         String opsworkStackName = instanceResource.getAdditionalField(InstanceJanitorCrawler.INSTANCE_FIELD_OPSWORKS_STACK_NAME);
@@ -112,25 +110,42 @@ public class OrphanedInstanceRule implements Rule {
             } else {
                 DateTime launchTime = new DateTime(resource.getLaunchTime().getTime());
                 DateTime now = new DateTime(calendar.now().getTimeInMillis());
-                if (now.isBefore(launchTime.plusDays(instanceAgeThreshold))) {
-                    LOGGER.info(String.format("The orphaned instance %s has not launched for more than %d days",
-                            resource.getId(), instanceAgeThreshold));
-                    return true;
-                }
-                LOGGER.info(String.format("The orphaned instance %s has launched for more than %d days",
-                        resource.getId(), instanceAgeThreshold));
-                if (resource.getExpectedTerminationTime() == null) {
-                    int retentionDays = retentionDaysWithoutOwner;
-                    if (resource.getOwnerEmail() != null) {
-                        retentionDays = retentionDaysWithOwner;
-                    }
-                    Date terminationTime = calendar.getBusinessDay(new Date(now.getMillis()), retentionDays);
-                    resource.setExpectedTerminationTime(terminationTime);
-                    resource.setTerminationReason((respectOpsWorksParentage) ? ASG_OR_OPSWORKS_TERMINATION_REASON : TERMINATION_REASON);
-                }
-                return false;
+                if (orphanedInstanceHasNotLaunchedForMoreThan(resource, launchTime, now)) return true;
+                return orphanedInstanceHasLaunchedForMoreThan(resource, now);
             }
         }
         return true;
+    }
+
+    private boolean orphanedInstanceHasLaunchedForMoreThan(Resource resource, DateTime now) {
+        LOGGER.info(String.format("The orphaned instance %s has launched for more than %d days",
+                resource.getId(), instanceAgeThreshold));
+        if (resource.getExpectedTerminationTime() == null) {
+            int retentionDays = retentionDaysWithoutOwner;
+            if (resource.getOwnerEmail() != null) {
+                retentionDays = retentionDaysWithOwner;
+            }
+            Date terminationTime = calendar.getBusinessDay(new Date(now.getMillis()), retentionDays);
+            resource.setExpectedTerminationTime(terminationTime);
+            resource.setTerminationReason((respectOpsWorksParentage) ? ASG_OR_OPSWORKS_TERMINATION_REASON : TERMINATION_REASON);
+        }
+        return false;
+    }
+
+    private boolean orphanedInstanceHasNotLaunchedForMoreThan(Resource resource, DateTime launchTime, DateTime now) {
+        if (now.isBefore(launchTime.plusDays(instanceAgeThreshold))) {
+            LOGGER.info(String.format("The orphaned instance %s has not launched for more than %d days",
+                    resource.getId(), instanceAgeThreshold));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean validateRunningOrPending(AWSResource resource) {
+        String awsStatus = resource.getAWSResourceState();
+        if (!"running".equals(awsStatus) || "pending".equals(awsStatus)) {
+            return true;
+        }
+        return false;
     }
 }

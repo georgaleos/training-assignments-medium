@@ -99,43 +99,29 @@ public class OldEmptyASGRule implements Rule {
     @Override
     public boolean isValid(Resource resource) {
         Validate.notNull(resource);
-        if (!"ASG".equals(resource.getResourceType().name())) {
-            return true;
-        }
+        if (validateName(resource)) return true;
 
-        if (StringUtils.isNotEmpty(resource.getAdditionalField(ASGJanitorCrawler.ASG_FIELD_ELBS))) {
-            LOGGER.info(String.format("ASG %s has ELBs.", resource.getId()));
-            return true;
-        }
+        if (hasELBs(resource)) return true;
 
-        if (instanceValidator.hasActiveInstance(resource)) {
-            LOGGER.info(String.format("ASG %s has active instance.", resource.getId()));
-            return true;
-        }
+        if (hasActiveInstance(resource)) return true;
 
         String lcName = resource.getAdditionalField(ASGJanitorCrawler.ASG_FIELD_LC_NAME);
         DateTime now = new DateTime(calendar.now().getTimeInMillis());
-        if (StringUtils.isEmpty(lcName)) {
-            LOGGER.error(String.format("Failed to find launch configuration for ASG %s", resource.getId()));
-            markResource(resource, now);
-            return false;
-        }
+        if (findLaunchConfigurationForASG(resource, lcName, now)) return false;
 
         String lcCreationTime = resource.getAdditionalField(ASGJanitorCrawler.ASG_FIELD_LC_CREATION_TIME);
-        if (StringUtils.isEmpty(lcCreationTime)) {
-            LOGGER.error(String.format("Failed to find creation time for launch configuration %s", lcName));
-            return true;
-        }
+        if (findCreationTime(lcName, lcCreationTime)) return true;
 
         DateTime createTime = new DateTime(Long.parseLong(lcCreationTime));
-        if (now.isBefore(createTime.plusDays(launchConfigAgeThreshold))) {
-            LOGGER.info(String.format("The launch configuration %s has not been created for more than %d days",
-                    lcName, launchConfigAgeThreshold));
-            return true;
-        }
-        LOGGER.info(String.format("The launch configuration %s has been created for more than %d days",
-                lcName, launchConfigAgeThreshold));
+        if (hasBeenCreatedForMoreThan(lcName, now, createTime)) return true;
 
+        if (hadChangeDuringTheLast(resource, now)) return true;
+
+        markResource(resource, now);
+        return false;
+    }
+
+    private boolean hadChangeDuringTheLast(Resource resource, DateTime now) {
         if (lastChangeDaysThreshold != null) {
             String lastChangeTimeField = resource.getAdditionalField(EddaASGJanitorCrawler.ASG_FIELD_LAST_CHANGE_TIME);
             if (StringUtils.isNotBlank(lastChangeTimeField)) {
@@ -147,8 +133,57 @@ public class OldEmptyASGRule implements Rule {
                 }
             }
         }
+        return false;
+    }
 
-        markResource(resource, now);
+    private boolean hasBeenCreatedForMoreThan(String lcName, DateTime now, DateTime createTime) {
+        if (now.isBefore(createTime.plusDays(launchConfigAgeThreshold))) {
+            LOGGER.info(String.format("The launch configuration %s has not been created for more than %d days",
+                    lcName, launchConfigAgeThreshold));
+            return true;
+        }
+        LOGGER.info(String.format("The launch configuration %s has been created for more than %d days",
+                lcName, launchConfigAgeThreshold));
+        return false;
+    }
+
+    private boolean findCreationTime(String lcName, String lcCreationTime) {
+        if (StringUtils.isEmpty(lcCreationTime)) {
+            LOGGER.error(String.format("Failed to find creation time for launch configuration %s", lcName));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean findLaunchConfigurationForASG(Resource resource, String lcName, DateTime now) {
+        if (StringUtils.isEmpty(lcName)) {
+            LOGGER.error(String.format("Failed to find launch configuration for ASG %s", resource.getId()));
+            markResource(resource, now);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean hasActiveInstance(Resource resource) {
+        if (instanceValidator.hasActiveInstance(resource)) {
+            LOGGER.info(String.format("ASG %s has active instance.", resource.getId()));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean hasELBs(Resource resource) {
+        if (StringUtils.isNotEmpty(resource.getAdditionalField(ASGJanitorCrawler.ASG_FIELD_ELBS))) {
+            LOGGER.info(String.format("ASG %s has ELBs.", resource.getId()));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean validateName(Resource resource) {
+        if (!"ASG".equals(resource.getResourceType().name())) {
+            return true;
+        }
         return false;
     }
 
