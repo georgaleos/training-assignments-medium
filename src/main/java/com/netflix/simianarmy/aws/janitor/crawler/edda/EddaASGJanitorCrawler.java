@@ -174,17 +174,7 @@ public class EddaASGJanitorCrawler implements JanitorCrawler {
                 .withResourceType(AWSResourceType.ASG)
                 .withLaunchTime(new Date(createdTime));
 
-        JsonNode tags = jsonNode.get("tags");
-        if (tags == null || !tags.isArray() || tags.size() == 0) {
-            LOGGER.debug(String.format("No tags is found for %s", resource.getId()));
-        } else {
-            for (Iterator<JsonNode> it = tags.getElements(); it.hasNext();) {
-                JsonNode tag = it.next();
-                String key = tag.get("key").getTextValue();
-                String value = tag.get("value").getTextValue();
-                resource.setTag(key, value);
-            }
-        }
+        createTags(jsonNode, resource);
 
         String owner = getOwnerEmailForResource(resource);
         if (owner != null) {
@@ -194,20 +184,7 @@ public class EddaASGJanitorCrawler implements JanitorCrawler {
         if (maxSize != null) {
             resource.setAdditionalField(ASG_FIELD_MAX_SIZE, String.valueOf(maxSize.getIntValue()));
         }
-        // Adds instances and ELBs as additional fields.
-        JsonNode instances = jsonNode.get("instances");
-        resource.setDescription(String.format("%d instances", instances.size()));
-        List<String> instanceIds = Lists.newArrayList();
-        for (Iterator<JsonNode> it = instances.getElements(); it.hasNext();) {
-            instanceIds.add(it.next().get("instanceId").getTextValue());
-        }
-        resource.setAdditionalField(ASG_FIELD_INSTANCES, StringUtils.join(instanceIds, ","));
-        JsonNode elbs = jsonNode.get("loadBalancerNames");
-        List<String> elbNames = Lists.newArrayList();
-        for (Iterator<JsonNode> it = elbs.getElements(); it.hasNext();) {
-            elbNames.add(it.next().getTextValue());
-        }
-        resource.setAdditionalField(ASG_FIELD_ELBS, StringUtils.join(elbNames, ","));
+        addsInstancesELBsAsAdditionalFields(jsonNode, resource);
 
         JsonNode lc = jsonNode.get("launchConfigurationName");
         if (lc != null) {
@@ -221,6 +198,16 @@ public class EddaASGJanitorCrawler implements JanitorCrawler {
             }
         }
         // sets the field for the time when the ASG's traffic is suspended from ELB
+        setsTheFieldForTheTime(jsonNode, asgName, resource);
+        Long lastChangeTime = regionToAsgToLastChangeTime.get(region).get(asgName);
+        if (lastChangeTime != null) {
+            resource.setAdditionalField(ASG_FIELD_LAST_CHANGE_TIME, String.valueOf(lastChangeTime));
+        }
+        return resource;
+
+    }
+
+    private void setsTheFieldForTheTime(JsonNode jsonNode, String asgName, Resource resource) {
         JsonNode suspendedProcesses = jsonNode.get("suspendedProcesses");
         for (Iterator<JsonNode> it = suspendedProcesses.getElements(); it.hasNext();) {
             JsonNode sp = it.next();
@@ -234,12 +221,36 @@ public class EddaASGJanitorCrawler implements JanitorCrawler {
                 }
             }
         }
-        Long lastChangeTime = regionToAsgToLastChangeTime.get(region).get(asgName);
-        if (lastChangeTime != null) {
-            resource.setAdditionalField(ASG_FIELD_LAST_CHANGE_TIME, String.valueOf(lastChangeTime));
-        }
-        return resource;
+    }
 
+    private void addsInstancesELBsAsAdditionalFields(JsonNode jsonNode, Resource resource) {
+        JsonNode instances = jsonNode.get("instances");
+        resource.setDescription(String.format("%d instances", instances.size()));
+        List<String> instanceIds = Lists.newArrayList();
+        for (Iterator<JsonNode> it = instances.getElements(); it.hasNext();) {
+            instanceIds.add(it.next().get("instanceId").getTextValue());
+        }
+        resource.setAdditionalField(ASG_FIELD_INSTANCES, StringUtils.join(instanceIds, ","));
+        JsonNode elbs = jsonNode.get("loadBalancerNames");
+        List<String> elbNames = Lists.newArrayList();
+        for (Iterator<JsonNode> it = elbs.getElements(); it.hasNext();) {
+            elbNames.add(it.next().getTextValue());
+        }
+        resource.setAdditionalField(ASG_FIELD_ELBS, StringUtils.join(elbNames, ","));
+    }
+
+    private void createTags(JsonNode jsonNode, Resource resource) {
+        JsonNode tags = jsonNode.get("tags");
+        if (tags == null || !tags.isArray() || tags.size() == 0) {
+            LOGGER.debug(String.format("No tags is found for %s", resource.getId()));
+        } else {
+            for (Iterator<JsonNode> it = tags.getElements(); it.hasNext();) {
+                JsonNode tag = it.next();
+                String key = tag.get("key").getTextValue();
+                String value = tag.get("value").getTextValue();
+                resource.setTag(key, value);
+            }
+        }
     }
 
     private Map<String, Long> getLaunchConfigCreationTimes(String region) {
