@@ -256,17 +256,8 @@ public class EddaELBJanitorCrawler implements JanitorCrawler {
         String dnsName = jsonNode.get("DNSName").getTextValue();
         resource.setAdditionalField("DNSName", dnsName);
 
-        JsonNode tags = jsonNode.get("tags");
-        if (tags == null || !tags.isArray() || tags.size() == 0) {
-            LOGGER.debug(String.format("No tags is found for %s", resource.getId()));
-        } else {
-            for (Iterator<JsonNode> it = tags.getElements(); it.hasNext();) {
-                JsonNode tag = it.next();
-                String key = tag.get("key").getTextValue();
-                String value = tag.get("value").getTextValue();
-                resource.setTag(key, value);
-            }
-        }
+
+        setTagsToResource(jsonNode, resource);
 
         String owner = getOwnerEmailForResource(resource);
         if (owner != null) {
