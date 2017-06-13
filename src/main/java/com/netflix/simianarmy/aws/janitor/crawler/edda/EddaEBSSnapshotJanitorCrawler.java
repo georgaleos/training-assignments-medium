@@ -202,6 +202,44 @@ public class EddaEBSSnapshotJanitorCrawler implements JanitorCrawler {
 
         LOGGER.info(String.format("Getting mapping from snapshot to AMIs in region %s", region));
 
+        JsonNode jsonNode = getJsonNode(region);
+
+        for (Iterator<JsonNode> it = jsonNode.getElements(); it.hasNext();) {
+            JsonNode elem = it.next();
+            String imageId = elem.get("imageId").getTextValue();
+            JsonNode blockMappings = elem.get("blockDeviceMappings");
+            if (blockMappings == null || !blockMappings.isArray() || blockMappings.size() == 0) {
+                continue;
+            }
+            generateAmi(imageId, blockMappings);
+        }
+    }
+
+    private void generateAmi(String imageId, JsonNode blockMappings) {
+        for (Iterator<JsonNode> blockMappingsIt = blockMappings.getElements(); blockMappingsIt.hasNext();) {
+            JsonNode blockMappingNode = blockMappingsIt.next();
+            JsonNode ebs = blockMappingNode.get("ebs");
+            if (ebs == null) {
+                continue;
+            }
+            JsonNode snapshotIdNode = ebs.get("snapshotId");
+            String snapshotId = snapshotIdNode.getTextValue();
+            LOGGER.debug(String.format("Snapshot %s is used to generate AMI %s", snapshotId, imageId));
+
+            addAMis(imageId, snapshotId);
+        }
+    }
+
+    private void addAMis(String imageId, String snapshotId) {
+        Collection<String> amis = snapshotToAMIs.get(snapshotId);
+        if (amis == null) {
+            amis = Lists.newArrayList();
+            snapshotToAMIs.put(snapshotId, amis);
+        }
+        amis.add(imageId);
+    }
+
+    private JsonNode getJsonNode(String region) throws RuntimeException {
         String url = eddaClient.getBaseUrl(region) + "/aws/images/"
                 + ";_expand:(imageId,blockDeviceMappings:(ebs:(snapshotId)))";
         JsonNode jsonNode = null;
@@ -215,31 +253,6 @@ public class EddaEBSSnapshotJanitorCrawler implements JanitorCrawler {
         if (jsonNode == null || !jsonNode.isArray()) {
             throw new RuntimeException(String.format("Failed to get valid document from %s, got: %s", url, jsonNode));
         }
-
-        for (Iterator<JsonNode> it = jsonNode.getElements(); it.hasNext();) {
-            JsonNode elem = it.next();
-            String imageId = elem.get("imageId").getTextValue();
-            JsonNode blockMappings = elem.get("blockDeviceMappings");
-            if (blockMappings == null || !blockMappings.isArray() || blockMappings.size() == 0) {
-                continue;
-            }
-            for (Iterator<JsonNode> blockMappingsIt = blockMappings.getElements(); blockMappingsIt.hasNext();) {
-                JsonNode blockMappingNode = blockMappingsIt.next();
-                JsonNode ebs = blockMappingNode.get("ebs");
-                if (ebs == null) {
-                    continue;
-                }
-                JsonNode snapshotIdNode = ebs.get("snapshotId");
-                String snapshotId = snapshotIdNode.getTextValue();
-                LOGGER.debug(String.format("Snapshot %s is used to generate AMI %s", snapshotId, imageId));
-
-                Collection<String> amis = snapshotToAMIs.get(snapshotId);
-                if (amis == null) {
-                    amis = Lists.newArrayList();
-                    snapshotToAMIs.put(snapshotId, amis);
-                }
-                amis.add(imageId);
-            }
-        }
+        return jsonNode;
     }
 }
