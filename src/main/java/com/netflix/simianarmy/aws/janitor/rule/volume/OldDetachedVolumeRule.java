@@ -39,7 +39,7 @@ import com.netflix.simianarmy.janitor.Rule;
  * certain days. The rule mostly relies on tags on the volume to decide if
  * the volume should be marked.
  */
-public class OldDetachedVolumeRule implements Rule {
+public class OldDetachedVolumeRule extends VolumeRule {
 
     /** The Constant LOGGER. */
     private static final Logger LOGGER = LoggerFactory.getLogger(OldDetachedVolumeRule.class);
@@ -49,10 +49,6 @@ public class OldDetachedVolumeRule implements Rule {
     private final int detachDaysThreshold;
 
     private final int retentionDays;
-
-    /** The date format used to print or parse the user specified termination date. **/
-    public static final DateTimeFormatter TERMINATION_DATE_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd");
-
 
     /**
      * Constructor.
@@ -84,23 +80,8 @@ public class OldDetachedVolumeRule implements Rule {
             return true;
         }
         String janitorTag = resource.getTag(JanitorMonkey.JANITOR_TAG);
-        if (janitorTag != null) {
-            if ("donotmark".equals(janitorTag)) {
-                LOGGER.info(String.format("The volume %s is tagged as not handled by Janitor",
-                        resource.getId()));
-                return true;
-            }
-            try {
-                // Owners can tag the volume with a termination date in the "janitor" tag.
-                Date userSpecifiedDate = new Date(
-                        TERMINATION_DATE_FORMATTER.parseDateTime(janitorTag).getMillis());
-                resource.setExpectedTerminationTime(userSpecifiedDate);
-                resource.setTerminationReason(String.format("User specified termination date %s", janitorTag));
-                return false;
-            } catch (Exception e) {
-                LOGGER.error(String.format("The janitor tag is not a user specified date: %s", janitorTag));
-            }
-        }
+        Boolean x = checkJanitorTag(resource, janitorTag);
+        if (x != null) return x;
 
         String janitorMetaTag = resource.getTag(JanitorMonkey.JANITOR_META_TAG);
         if (janitorMetaTag == null) {
@@ -139,4 +120,6 @@ public class OldDetachedVolumeRule implements Rule {
         }
         return true;
     }
+
+
 }
