@@ -92,14 +92,9 @@ public interface CloudClient {
     /**
      * Deletes a DNS record.
      *
-     * @param dnsName
-     *          the DNS record to delete
-     * @param dnsType
-     *          the DNS type (CNAME, A, or AAAA)
-     * @param hostedZoneID
-     *          the ID of the hosted zone (required for AWS Route53 records)
+     * @param DNSRecordForDeletion
      */
-    public void deleteDNSRecord(String dnsName, String dnsType, String hostedZoneID);
+    public void deleteDNSRecord(DNSRecordForDeletion DNSRecordForDeletion, String hostedZoneID);
 
      /**
      * Adds or overwrites tags for the specified resources.

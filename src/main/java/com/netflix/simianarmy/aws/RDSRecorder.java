@@ -66,13 +66,12 @@ public class RDSRecorder implements MonkeyRecorder {
      * Instantiates a new RDS recorder.
      *
      */
-    public RDSRecorder(String dbDriver, String dbUser,
-			String dbPass, String dbUrl, String dbTable, String region) {
+    public RDSRecorder(DataSource dataSource1, String dbTable, String region) {
         HikariDataSource dataSource = new HikariDataSource();
-        dataSource.setDriverClassName(dbDriver);
-        dataSource.setJdbcUrl(dbUrl);
-        dataSource.setUsername(dbUser);
-        dataSource.setPassword(dbPass);
+        dataSource.setDriverClassName(dataSource1.getDbDriver());
+        dataSource.setJdbcUrl(dataSource1.getDbUrl());
+        dataSource.setUsername(dataSource1.getDbUser());
+        dataSource.setPassword(dataSource1.getDbPass());
         dataSource.setMaximumPoolSize(2);
     	this.jdbcTemplate = new JdbcTemplate(dataSource);
     	this.table = dbTable;

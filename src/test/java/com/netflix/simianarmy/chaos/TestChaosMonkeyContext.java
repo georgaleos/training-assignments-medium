@@ -22,10 +22,7 @@ import com.amazonaws.services.autoscaling.model.TagDescription;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.netflix.simianarmy.CloudClient;
-import com.netflix.simianarmy.GroupType;
-import com.netflix.simianarmy.MonkeyConfiguration;
-import com.netflix.simianarmy.TestMonkeyContext;
+import com.netflix.simianarmy.*;
 import com.netflix.simianarmy.basic.BasicConfiguration;
 import com.netflix.simianarmy.basic.chaos.BasicChaosInstanceSelector;
 import com.netflix.simianarmy.chaos.ChaosCrawler.InstanceGroup;
@@ -247,7 +244,7 @@ public class TestChaosMonkeyContext extends TestMonkeyContext implements ChaosMo
             }
 
             @Override
-            public void deleteDNSRecord(String dnsname, String dnstype, String hostedzoneid) {
+            public void deleteDNSRecord(DNSRecordForDeletion DNSRecordForDeletion) {
             }
 
             @Override

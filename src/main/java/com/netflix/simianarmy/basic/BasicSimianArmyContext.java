@@ -29,6 +29,7 @@ import com.netflix.simianarmy.MonkeyConfiguration;
 import com.netflix.simianarmy.MonkeyRecorder;
 import com.netflix.simianarmy.MonkeyRecorder.Event;
 import com.netflix.simianarmy.MonkeyScheduler;
+import com.netflix.simianarmy.aws.DataSource;
 import com.netflix.simianarmy.aws.RDSRecorder;
 import com.netflix.simianarmy.aws.STSAssumeRoleSessionCredentialsProvider;
 import com.netflix.simianarmy.aws.SimpleDBRecorder;
@@ -221,7 +222,7 @@ public class BasicSimianArmyContext implements Monkey.Context {
             String dbUrl = configuration().getStr("simianarmy.recorder.db.url");
             String dbTable = configuration().getStr("simianarmy.recorder.db.table");
             
-            RDSRecorder rdsRecorder = new RDSRecorder(dbDriver, dbUser, dbPass, dbUrl, dbTable, client.region());
+            RDSRecorder rdsRecorder = new RDSRecorder(new DataSource(dbDriver, dbUser, dbPass, dbUrl), dbTable, client.region());
             rdsRecorder.init();
             setRecorder(rdsRecorder);        	
         } else if (recorderClass == null || recorderClass.equals(SimpleDBRecorder.class)) {

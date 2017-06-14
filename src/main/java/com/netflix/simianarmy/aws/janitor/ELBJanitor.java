@@ -18,6 +18,7 @@
 
 package com.netflix.simianarmy.aws.janitor;
 
+import com.netflix.simianarmy.DNSRecordForDeletion;
 import com.netflix.simianarmy.Resource;
 import com.netflix.simianarmy.aws.AWSResourceType;
 import com.netflix.simianarmy.client.aws.AWSClient;
@@ -80,7 +81,7 @@ public class ELBJanitor extends AbstractJanitor {
 
             for(int i=0; i<dnsNamesSplit.length; i++) {
                 LOGGER.info(String.format("Deleting DNS Record %s for ELB %s of type %s in zone %s", dnsNamesSplit[i], resource.getId(), dnsTypesSplit[i], dnsZonesSplit[i]));
-                awsClient.deleteDNSRecord(dnsNamesSplit[i], dnsTypesSplit[i], dnsZonesSplit[i]);
+                awsClient.deleteDNSRecord(new DNSRecordForDeletion(dnsNamesSplit[i], dnsTypesSplit[i]), dnsZonesSplit[i]);
             }
         }
     }

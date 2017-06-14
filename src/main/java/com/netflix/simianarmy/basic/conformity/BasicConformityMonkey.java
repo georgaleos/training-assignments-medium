@@ -213,30 +213,29 @@ public class BasicConformityMonkey extends ConformityMonkey {
             }
             StringBuilder message = new StringBuilder();
             for (String region : regions) {
-                appendSummary(message, "nonconforming", nonconformingClusters, region, true);
-                appendSummary(message, "failed to check", failedClusters, region, true);
-                appendSummary(message, "nonexistent", nonexistentClusters, region, true);
-                appendSummary(message, "conforming", conformingClusters, region, false);
+                appendSummary(new Summary(message, "nonconforming"), nonconformingClusters, region, true);
+                appendSummary(new Summary(message, "failed to check"), failedClusters, region, true);
+                appendSummary(new Summary(message, "nonexistent"), nonexistentClusters, region, true);
+                appendSummary(new Summary(message, "conforming"), conformingClusters, region, false);
             }
             String subject = getSummaryEmailSubject();
             emailNotifier.sendEmail(summaryEmailTarget, subject, message.toString());
         }
     }
 
-    private void appendSummary(StringBuilder message, String summaryName,
-                               Map<String, Collection<Cluster>> regionToClusters, String region, boolean showDetails) {
+    private void appendSummary(Summary summary, Map<String, Collection<Cluster>> regionToClusters, String region, boolean showDetails) {
         Collection<Cluster> clusters = regionToClusters.get(region);
         if (clusters == null) {
             clusters = Lists.newArrayList();
         }
-        message.append(String.format("Total %s clusters = %d in region %s<br/>",
-                summaryName, clusters.size(), region));
+        summary.getMessage().append(String.format("Total %s clusters = %d in region %s<br/>",
+                summary.getSummaryName(), clusters.size(), region));
         if (showDetails) {
             List<String> clusterNames = Lists.newArrayList();
             for (Cluster cluster : clusters) {
                 clusterNames.add(cluster.getName());
             }
-            message.append(String.format("List: %s<br/><br/>", StringUtils.join(clusterNames, ",")));
+            summary.getMessage().append(String.format("List: %s<br/><br/>", StringUtils.join(clusterNames, ",")));
         }
     }
 

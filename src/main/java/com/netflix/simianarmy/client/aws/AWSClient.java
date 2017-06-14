@@ -45,6 +45,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.inject.Module;
 import com.netflix.simianarmy.CloudClient;
+import com.netflix.simianarmy.DNSRecordForDeletion;
 import com.netflix.simianarmy.NotFoundException;
 import org.apache.commons.lang.Validate;
 import org.jclouds.ContextBuilder;
@@ -576,24 +577,25 @@ public class AWSClient implements CloudClient {
         elbClient.deleteLoadBalancer(request);
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}
+     * @param DNSRecordForDeletion*/
     @Override
-    public void deleteDNSRecord(String dnsName, String dnsType, String hostedZoneID) {
-        Validate.notEmpty(dnsName);
-        Validate.notEmpty(dnsType);
+    public void deleteDNSRecord(DNSRecordForDeletion DNSRecordForDeletion, String hostedZoneID) {
+        Validate.notEmpty(DNSRecordForDeletion.getDnsName());
+        Validate.notEmpty(DNSRecordForDeletion.getDnsType());
 
-        if(dnsType.equals("A") || dnsType.equals("AAAA") || dnsType.equals("CNAME")) {
-            LOGGER.info(String.format("Deleting DNS Route 53 record %s", dnsName));
+        if(DNSRecordForDeletion.getDnsType().equals("A") || DNSRecordForDeletion.getDnsType().equals("AAAA") || DNSRecordForDeletion.getDnsType().equals("CNAME")) {
+            LOGGER.info(String.format("Deleting DNS Route 53 record %s", DNSRecordForDeletion.getDnsName()));
             AmazonRoute53Client route53Client = route53Client();
 
             // AWS API requires us to query for the record first
             ListResourceRecordSetsRequest listRequest = new ListResourceRecordSetsRequest(hostedZoneID);
             listRequest.setMaxItems("1");
-            listRequest.setStartRecordType(dnsType);
-            listRequest.setStartRecordName(dnsName);
+            listRequest.setStartRecordType(DNSRecordForDeletion.getDnsType());
+            listRequest.setStartRecordName(DNSRecordForDeletion.getDnsName());
             ListResourceRecordSetsResult listResult = route53Client.listResourceRecordSets(listRequest);
             if (listResult.getResourceRecordSets().size() < 1) {
-                throw new NotFoundException("Could not find Route53 record for " + dnsName + " (" + dnsType + ") in zone " + hostedZoneID);
+                throw new NotFoundException("Could not find Route53 record for " + DNSRecordForDeletion.getDnsName() + " (" + DNSRecordForDeletion.getDnsType() + ") in zone " + hostedZoneID);
             } else {
                 ResourceRecordSet resourceRecord = listResult.getResourceRecordSets().get(0);
                 ArrayList<Change> changeList = new ArrayList<>();
